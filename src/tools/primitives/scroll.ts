@@ -22,13 +22,21 @@ export const ScrollTool: ToolExecutor<{
           { dx: deltaX, dy: deltaY },
         );
       } else {
-        await ctx.page.evaluate(({ dx, dy }) => window.scrollBy(dx, dy), { dx: deltaX, dy: deltaY });
+        // Move mouse to viewport center then fire wheel — browser hit-test finds
+        // the correct scroll container regardless of page layout.
+        // viewportSize() returns null on CDP connections, fall back to JS.
+        const vp = ctx.page.viewportSize()
+          ?? await ctx.page.evaluate(() => ({ width: window.innerWidth, height: window.innerHeight }));
+        await ctx.page.mouse.move(vp.width / 2, vp.height / 2);
+        await ctx.page.mouse.wheel(deltaX, deltaY);
       }
 
       // Brief wait for scroll animations
       await ctx.page.waitForTimeout(300);
 
-      const scrollY = await ctx.page.evaluate(() => window.scrollY);
+      const scrollY = await ctx.page.evaluate(() =>
+        window.scrollY || (document.scrollingElement?.scrollTop ?? 0),
+      );
       return { success: true, action: 'scroll', durationMs: Date.now() - start, output: `Scrolled. Current scrollY: ${scrollY}px` };
     } catch (err) {
       return { success: false, action: 'scroll', durationMs: Date.now() - start, error: String(err) };
