@@ -21,6 +21,7 @@ import { DOMSnapshotTool } from './primitives/dom-snapshot.js';
 import { SearchTool } from './primitives/search.js';
 import { ExecutePythonTool } from './primitives/execute-python.js';
 import { JavascriptTool } from './primitives/javascript.js';
+import { FindOnPageTool } from './primitives/find-on-page.js';
 
 // Symbolic
 import { SubmitFormAction } from './symbolic/submit-form.js';
@@ -143,6 +144,9 @@ export class ToolExecutorRegistry {
 
       case 'search':
         return SearchTool.execute({ query: decision.value ?? '', count: 5 }, ctx);
+
+      case 'find_on_page':
+        return FindOnPageTool.execute({ pattern: decision.value ?? '' }, ctx);
 
       case 'execute_python':
         return ExecutePythonTool.execute({ code: decision.value ?? '' }, ctx);

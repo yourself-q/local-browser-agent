@@ -9,6 +9,7 @@ import { MemoryManager } from '../memory/index.js';
 import { EventStore } from '../events/index.js';
 import { SessionManager } from '../runtime/session.js';
 import { ScreenshotVisionProvider } from '../grounding/vision/screenshot.js';
+import { ActionLoopDetector } from './loop-detector.js';
 import { createLogger } from '../runtime/logger.js';
 
 const log = createLogger('agent');
@@ -131,6 +132,7 @@ export class AgentOrchestrator {
       memory,
       events,
       tabManager: pageWrapper.tabs,
+      loopDetector: new ActionLoopDetector(),
     };
 
     // ── Main agent loop ───────────────────────────────────────────────────────

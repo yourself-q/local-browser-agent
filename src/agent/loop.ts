@@ -8,11 +8,11 @@ import type { ToolExecutorRegistry } from '../tools/index.js';
 import type { OpenAILLMClient } from '../llm/openai.js';
 import type { MemoryManager } from '../memory/index.js';
 import type { EventStore } from '../events/index.js';
-import { buildRecoveryPrompt } from '../prompts/recovery.js';
 import { createLogger } from '../runtime/logger.js';
 import type { BrowserState } from '../state/types.js';
 import type { ActionDecision } from '../llm/types.js';
 import type { TabManager } from '../browser/tabs.js';
+import type { ActionLoopDetector } from './loop-detector.js';
 
 const log = createLogger('agent:loop');
 
@@ -29,6 +29,7 @@ export interface LoopContext {
   memory: MemoryManager;
   events: EventStore;
   tabManager: TabManager;
+  loopDetector: ActionLoopDetector;
 }
 
 // ─── Single agent step ────────────────────────────────────────────────────────
@@ -82,12 +83,14 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
   // ── 2. LLM decision ───────────────────────────────────────────────────────
   const history = ctx.memory.getConversationHistory(20);
 
-  // Recovery context: when stuck (2+ consecutive failures), signal the LLM to change approach.
-  // The error detail is already in history via addConversationTurn; this adds a systemic header.
+  // Build context, layering loop detection and recovery mode notices on top.
   const baseContext = ctx.memory.buildContext(currentState.url);
-  const context = state.consecutiveFailures >= 2
-    ? `## ⚠️ RECOVERY MODE — ${state.consecutiveFailures} consecutive failures\nYou are stuck. Do NOT retry the same action. Fundamentally change your approach: try a different element, use execute_javascript, take a screenshot to inspect, or navigate away and back.\n\n${baseContext}`
-    : baseContext;
+  const loopStatus = ctx.loopDetector.detect();
+  const context = loopStatus.looping
+    ? `## 🔄 LOOP DETECTED — ${loopStatus.description}\nStop repeating this pattern. Take a fundamentally different approach: try a completely different element, navigate elsewhere, use execute_javascript, or take a screenshot to inspect the current state.\n\n${baseContext}`
+    : state.consecutiveFailures >= 2
+      ? `## ⚠️ RECOVERY MODE — ${state.consecutiveFailures} consecutive failures\nYou are stuck. Do NOT retry the same action. Fundamentally change your approach: try a different element, use execute_javascript, take a screenshot to inspect, or navigate away and back.\n\n${baseContext}`
+      : baseContext;
 
   let decision: ActionDecision;
   try {
@@ -108,10 +111,12 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
       '── LLM decision',
     );
 
-    // Record in episodic memory
+    // Record in episodic memory — compact summary only.
+    // The full element list is re-provided fresh each step via buildActionPrompt();
+    // storing it in history would bloat the context window without adding value.
     ctx.memory.addConversationTurn({
       role: 'user',
-      content: `Step ${stepIndex}: ${currentState.url}\n${JSON.stringify(currentState.clickableElements.slice(0, 20))}`,
+      content: `Step ${stepIndex} @ ${currentState.url} — ${currentState.clickableElements.length} interactive elements`,
       stepIndex,
       timestamp: Date.now(),
     });
@@ -162,8 +167,9 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
   const ELEMENTLESS_ACTIONS = new Set([
     'navigate', 'go_back', 'go_forward', 'reload', 'wait',
     'screenshot', 'accessibility_dump', 'dom_snapshot', 'extract_content',
+    'find_on_page',
     'switch_tab', 'close_tab',
-    'search', 'execute_python', 'execute_javascript',  // agent tools — no DOM element needed
+    'search', 'execute_python', 'execute_javascript',
   ]);
 
   const domSnapshot = await captureDOMSnapshot(page);
@@ -250,6 +256,83 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
     return { type: 'success' };
   }
 
+  // ── 6.6. Multi-action: execute follow-up actions (nextActions) ──────────────
+  // Follow-ups run on the same state snapshot — no re-capture between each.
+  // Cancelled as soon as a URL change is detected (remaining ref_N IDs are stale).
+  if (
+    execResult.success &&
+    decision.nextActions?.length &&
+    decision.action !== 'switch_tab' &&
+    decision.action !== 'close_tab'
+  ) {
+    for (let i = 0; i < decision.nextActions.length; i++) {
+      const followUp = decision.nextActions[i]!;
+
+      // Cancel remaining follow-ups if the page has navigated
+      if (ctx.page.url() !== currentState.url) {
+        log.info({ stepIndex, cancelledAt: i }, 'URL changed during multi-action — cancelling remaining nextActions');
+        break;
+      }
+
+      const followUpDecision: ActionDecision = {
+        reasoning: `nextAction ${i + 1}/${decision.nextActions.length}`,
+        action: followUp.action,
+        targetElementId: followUp.targetElementId,
+        targetDescription: followUp.targetDescription,
+        value: followUp.value,
+        scrollDirection: followUp.scrollDirection,
+        scrollAmount: followUp.scrollAmount,
+        tabIndex: followUp.tabIndex,
+        confidence: 0.8,
+        requiresHumanApproval: false,
+        done: false,
+      };
+
+      let followUpElement: import('../grounding/types.js').GroundedElement | undefined;
+      if (!ELEMENTLESS_ACTIONS.has(followUp.action)) {
+        const gr = await ctx.grounding.resolve(followUpDecision, currentState, domSnapshot, ctx.page);
+        if (!gr.success) {
+          log.warn({ action: followUp.action, target: followUp.targetElementId, reason: gr.failureReason }, '── Follow-up grounding FAILED — cancelling remaining');
+          ctx.memory.addConversationTurn({
+            role: 'user',
+            content: `[nextAction ${i + 1} grounding failed]: could not find element for "${followUp.action}" (${followUp.targetElementId ?? followUp.targetDescription ?? 'unknown'}).`,
+            stepIndex,
+            timestamp: Date.now(),
+          });
+          break;
+        }
+        followUpElement = gr.element;
+      }
+
+      const fuResult = await ctx.executor.execute(
+        followUpDecision, followUpElement, ctx.page,
+        ctx.grounding, currentState, domSnapshot,
+        config.sessionId, stepIndex, ctx.tabManager,
+      );
+
+      log.info({ stepIndex, followUpIndex: i + 1, action: followUp.action, success: fuResult.success }, `── nextAction ${i + 1} ${fuResult.success ? 'OK' : 'FAILED'}`);
+
+      if (!fuResult.success) {
+        ctx.memory.addConversationTurn({
+          role: 'user',
+          content: `[nextAction ${i + 1} failed]: "${followUp.action}" — ${fuResult.error ?? 'unknown error'}`,
+          stepIndex,
+          timestamp: Date.now(),
+        });
+        break;
+      }
+
+      if (fuResult.output) {
+        ctx.memory.addConversationTurn({
+          role: 'user',
+          content: `[Result of nextAction ${i + 1} — ${followUp.action}]:\n${String(fuResult.output).slice(0, 2000)}`,
+          stepIndex,
+          timestamp: Date.now(),
+        });
+      }
+    }
+  }
+
   if (!execResult.success) {
     events.emit('action.failed', execResult);
     state.consecutiveFailures++;
@@ -296,6 +379,7 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
     decision.action === 'scroll' ||
     // Read-only / query actions never change DOM state — don't penalize them
     decision.action === 'extract_content' ||
+    decision.action === 'find_on_page' ||
     decision.action === 'screenshot' ||
     decision.action === 'accessibility_dump' ||
     decision.action === 'dom_snapshot' ||
@@ -312,8 +396,21 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
     state.consecutiveFailures++;
   }
 
-  // ── 8. Update memory ──────────────────────────────────────────────────────
+  // Reset loop detector on navigation — new page means new context
+  if (verification.delta.urlChanged) {
+    ctx.loopDetector.reset();
+  }
+
+  // ── 8. Update memory and loop detector ───────────────────────────────────────
   ctx.memory.record(decision, execResult, currentState);
+
+  // Record every executed action for loop detection.
+  // Use targetElementId / targetDescription as the "target" fingerprint;
+  // fall back to URL so navigation loops (same URL repeated) are also caught.
+  ctx.loopDetector.record(
+    decision.action,
+    decision.targetElementId ?? decision.targetDescription ?? currentState.url,
+  );
 
   // Persist any fact the LLM explicitly flagged as important.
   // Survives context window rotation — appears in buildContext() every future step.

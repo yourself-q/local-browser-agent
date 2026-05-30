@@ -16,6 +16,7 @@ export const ActionTypeSchema = z.enum([
   'close_tab',
   'wait',
   'extract_content',
+  'find_on_page',
   'screenshot',
   'accessibility_dump',
   'dom_snapshot',
@@ -34,6 +35,24 @@ export const ActionTypeSchema = z.enum([
 ]);
 
 export type ActionType = z.infer<typeof ActionTypeSchema>;
+
+// ─── Follow-up action (element of nextActions) ────────────────────────────────
+
+/**
+ * A lightweight follow-up action chained after the primary action.
+ * No reasoning needed — all follow-ups reference elements from the same
+ * state snapshot as the primary action.
+ */
+export const FollowUpActionSchema = z.object({
+  action: ActionTypeSchema,
+  targetElementId: z.string().nullish().transform((v) => v ?? undefined),
+  targetDescription: z.string().nullish().transform((v) => v ?? undefined),
+  value: z.string().nullish().transform((v) => v ?? undefined),
+  scrollDirection: z.enum(['up', 'down', 'left', 'right']).nullish().transform((v) => v ?? undefined),
+  scrollAmount: z.number().nullish().transform((v) => (v != null && v > 0 ? Math.round(v) : undefined)),
+  tabIndex: z.number().int().min(0).nullish().transform((v) => v ?? undefined),
+});
+export type FollowUpAction = z.infer<typeof FollowUpActionSchema>;
 
 // ─── Action decision (LLM output) ─────────────────────────────────────────────
 
@@ -70,6 +89,14 @@ export const ActionDecisionSchema = z.object({
    * Example: "Entered email user@example.com into the login form"
    */
   remember: z.string().nullish().transform((v) => v ?? undefined),
+  /**
+   * Optional follow-up actions to execute immediately after this action completes,
+   * without re-capturing page state between each.
+   * All follow-ups reference ref_N IDs from the current step's Interactive Elements list.
+   * Cancelled automatically if the primary action causes a URL change.
+   * Maximum 3 follow-ups. Omit (or set null) when not needed.
+   */
+  nextActions: z.array(FollowUpActionSchema).max(3).nullish().transform((v) => v ?? undefined),
 });
 
 export type ActionDecision = z.infer<typeof ActionDecisionSchema>;
