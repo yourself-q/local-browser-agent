@@ -104,7 +104,7 @@ export class AgentOrchestrator {
       apiKey: config.lmStudioApiKey,
       model: config.model,
       deterministicMode: config.deterministicMode,
-      maxContextTurns: 20,
+      maxContextTurns: config.maxContextTurns,
       maxSteps: config.maxSteps,
       maxTokens: config.maxTokens ?? 2048,
       stripThinkingBlocks: config.stripThinkingBlocks ?? true,

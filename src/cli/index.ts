@@ -44,6 +44,7 @@ program
   .option('--model <model>', 'LM Studio model name')
   .option('--max-steps <n>', 'Maximum agent steps', '50')
   .option('--steps <n>', 'Maximum agent steps (alias for --max-steps)')
+  .option('--max-context-turns <n>', 'How many past turns to keep in LLM context (default 20)')
   .option('--approval', 'Enable human approval mode')
   .option('--deterministic', 'Enable deterministic execution mode')
   .option('--sessions-dir <dir>', 'Session storage directory', './sessions')
@@ -55,6 +56,7 @@ program
     model?: string;
     maxSteps: string;
     steps?: string;
+    maxContextTurns?: string;
     approval?: boolean;
     deterministic?: boolean;
     sessionsDir: string;
@@ -91,6 +93,7 @@ program
       humanApprovalMode: opts.approval ?? false,
       deterministicMode: opts.deterministic ?? false,
       maxSteps: parseInt(opts.steps ?? opts.maxSteps, 10),
+      maxContextTurns: opts.maxContextTurns ? parseInt(opts.maxContextTurns, 10) : undefined,
       model: opts.model,
       chromePort: parseInt(opts.chromePort, 10),
       referenceFiles: referenceFiles.length > 0 ? referenceFiles : undefined,

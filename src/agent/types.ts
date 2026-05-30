@@ -40,6 +40,8 @@ export interface AgentConfig {
   customTools?: CustomTool[];
   /** How long to wait for human input when wait_for_human is triggered (ms, default 5min) */
   captchaWaitTimeoutMs: number;
+  /** How many past conversation turns to keep in LLM context (default 20) */
+  maxContextTurns: number;
   /** Optional HTTP-Referer header for OpenRouter / API gateways */
   httpReferer?: string;
   /** Optional X-Title header for OpenRouter */

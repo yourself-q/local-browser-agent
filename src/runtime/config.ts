@@ -48,6 +48,8 @@ const EnvSchema = z.object({
     .transform((v) => v === 'true' || v === '1')
     .default('false'),
 
+  AGENT_MAX_CONTEXT_TURNS: z.coerce.number().int().positive().default(20),
+
   // ── CAPTCHA / human intervention ─────────────────────────────────────────
   // How long to wait for the user to manually solve a CAPTCHA (ms).
   CAPTCHA_WAIT_TIMEOUT_MS: z.coerce.number().int().positive().default(300000), // 5 min
@@ -86,6 +88,7 @@ export interface AgentConfigOverrides {
   humanApprovalMode?: boolean;
   deterministicMode?: boolean;
   maxSteps?: number;
+  maxContextTurns?: number;
   model?: string;
   chromePort?: number;
   referenceFiles?: ReferenceFile[];
@@ -115,6 +118,7 @@ export function buildAgentConfig(overrides: AgentConfigOverrides): AgentConfig {
     referenceFiles: overrides.referenceFiles,
     customTools: overrides.customTools,
     captchaWaitTimeoutMs: env.CAPTCHA_WAIT_TIMEOUT_MS as number,
+    maxContextTurns: (overrides.maxContextTurns ?? env.AGENT_MAX_CONTEXT_TURNS) as number,
     httpReferer: env.OPENROUTER_REFERER,
     xTitle: env.OPENROUTER_TITLE,
   };
