@@ -9,6 +9,7 @@ export function buildActionPrompt(
   stepIndex: number,
   maxSteps: number,
 ): string {
+  const ELEMENT_CAP = 100;
   const vh = state.viewportHeight;
   const inViewport = state.clickableElements.filter(
     (el) => !el.bounds || (el.bounds.y < vh && el.bounds.y + el.bounds.height > 0),
@@ -16,15 +17,24 @@ export function buildActionPrompt(
   const belowFold = state.clickableElements.filter(
     (el) => el.bounds && el.bounds.y >= vh,
   );
+  const capped = inViewport.slice(0, ELEMENT_CAP);
+  const overCap = inViewport.length - capped.length;
 
-  const clickableList = inViewport
+  const footer = [
+    overCap > 0
+      ? `  (showing ${ELEMENT_CAP} of ${inViewport.length} elements in viewport — use find_on_page or accessibility_dump to locate others)`
+      : '',
+    belowFold.length > 0
+      ? `  (+ ${belowFold.length} more elements below the fold — scroll to reveal)`
+      : '',
+  ].filter(Boolean).join('\n');
+
+  const clickableList = capped
     .map((el) => {
       const name = el.name.slice(0, 80);
       const value = el.value ? ` (value: "${el.value.slice(0, 40)}")` : '';
       const disabled = el.isDisabled ? ' [DISABLED]' : '';
       const checked = el.isChecked ? ' [checked]' : '';
-      // For <select>: show options inline (mirrors reference impl a11y tree format)
-      // e.g. options=[*selected="Option A", "Option B", "Option C"]
       let opts = '';
       if (el.options && el.options.length > 0) {
         const optStr = el.options
@@ -34,7 +44,7 @@ export function buildActionPrompt(
       }
       return `  - [${el.refId}] ${el.role}: "${name}"${value}${opts}${checked}${disabled}`;
     })
-    .join('\n') + (belowFold.length > 0 ? `\n  (+ ${belowFold.length} more elements below the fold — scroll to reveal)` : '');
+    .join('\n') + (footer ? '\n' + footer : '');
 
   const tabList = state.tabs
     .map((t) => `  - [${t.index}]${t.isActive ? ' [ACTIVE]' : ''} ${t.title} — ${t.url}`)

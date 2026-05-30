@@ -130,13 +130,15 @@ export class OpenAILLMClient implements LLMClient {
         ? [...refImageMessages, { role: 'assistant' as const, content: 'Reference image(s) noted.' }]
         : [];
 
+    const historySlice = history.slice(-this.config.maxContextTurns);
     const rawMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
       ...refSection,
-      ...history.slice(-this.config.maxContextTurns).map((turn): OpenAI.Chat.ChatCompletionMessageParam => {
-        // If this turn has an image (screenshot action result), send it as image_url.
-        // Only user turns can carry image_url — assistant turns are always text.
-        if (turn.imageBase64 && turn.role === 'user') {
+      ...historySlice.map((turn, i): OpenAI.Chat.ChatCompletionMessageParam => {
+        // Only attach screenshot to the most recent turn — older screenshots
+        // eat tokens without aiding decisions (current state is what matters).
+        const isLastTurn = i === historySlice.length - 1;
+        if (isLastTurn && turn.imageBase64 && turn.role === 'user') {
           return {
             role: 'user',
             content: [
