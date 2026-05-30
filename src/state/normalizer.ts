@@ -150,7 +150,8 @@ export function normalizeA11yTree(
 
   const isInteractive = INTERACTIVE_ROLES.has(role);
   const isDisabled = raw.disabled === true;
-  const isVisible = !isDisabled;
+  // CDP AX tree excludes aria-hidden/display:none nodes by design — presence implies visibility
+  const isVisible = true;
 
   return {
     nodeId: fingerprint.hash,
@@ -173,10 +174,10 @@ export function normalizeA11yTree(
   };
 }
 
-/** Flatten tree to get all interactive non-disabled visible nodes */
+/** Flatten tree to get all interactive non-disabled nodes */
 export function flattenInteractive(node: AccessibilityNode): AccessibilityNode[] {
   const results: AccessibilityNode[] = [];
-  if (node.isInteractive && node.isVisible && !node.isDisabled) {
+  if (node.isInteractive && !node.isDisabled) {
     results.push(node);
   }
   for (const child of node.children) {

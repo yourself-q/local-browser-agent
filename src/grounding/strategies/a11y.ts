@@ -220,7 +220,7 @@ function fuzzyMatch(description: string, nodes: AccessibilityNode[]): FuzzyMatch
   let best: FuzzyMatch | null = null;
 
   for (const node of nodes) {
-    if (!node.isVisible || node.isDisabled) continue;
+    if (node.isDisabled) continue;
 
     const name = node.name.toLowerCase().trim();
     const value = (node.value ?? '').toLowerCase().trim();
