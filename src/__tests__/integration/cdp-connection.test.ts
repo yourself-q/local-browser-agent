@@ -179,7 +179,7 @@ describe('State diffing via navigation', () => {
       accessibilityTree: a11yBefore.tree,
       clickableElements: a11yBefore.clickableElements,
       treeHash: a11yBefore.treeHash,
-      domHash: domBefore.hash,
+      domHash: domBefore.hash, viewportHeight: 900,
     };
 
     const urlBefore = page.url();
@@ -207,7 +207,7 @@ describe('State diffing via navigation', () => {
       accessibilityTree: a11yAfter.tree,
       clickableElements: a11yAfter.clickableElements,
       treeHash: a11yAfter.treeHash,
-      domHash: domAfter.hash,
+      domHash: domAfter.hash, viewportHeight: 900,
     };
 
     const delta = diffStates(stateBefore, stateAfter);

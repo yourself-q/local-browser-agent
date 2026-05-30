@@ -9,8 +9,15 @@ export function buildActionPrompt(
   stepIndex: number,
   maxSteps: number,
 ): string {
-  const clickableList = state.clickableElements
-    .slice(0, 60)
+  const vh = state.viewportHeight;
+  const inViewport = state.clickableElements.filter(
+    (el) => !el.bounds || (el.bounds.y < vh && el.bounds.y + el.bounds.height > 0),
+  );
+  const belowFold = state.clickableElements.filter(
+    (el) => el.bounds && el.bounds.y >= vh,
+  );
+
+  const clickableList = inViewport
     .map((el) => {
       const name = el.name.slice(0, 80);
       const value = el.value ? ` (value: "${el.value.slice(0, 40)}")` : '';
@@ -27,7 +34,7 @@ export function buildActionPrompt(
       }
       return `  - [${el.refId}] ${el.role}: "${name}"${value}${opts}${checked}${disabled}`;
     })
-    .join('\n');
+    .join('\n') + (belowFold.length > 0 ? `\n  (+ ${belowFold.length} more elements below the fold — scroll to reveal)` : '');
 
   const tabList = state.tabs
     .map((t) => `  - [${t.index}]${t.isActive ? ' [ACTIVE]' : ''} ${t.title} — ${t.url}`)

@@ -98,7 +98,7 @@ describe('OpenRouter live connectivity', () => {
           children: [], attributes: {},
         },
         treeHash: '',
-        domHash: '',
+        domHash: '', viewportHeight: 900,
       } as import('../state/types.js').BrowserState;
 
       const result = await client.decide(state, [], 'Return done immediately');

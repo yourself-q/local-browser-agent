@@ -24,7 +24,7 @@ function makeState(overrides: Partial<BrowserState>): BrowserState {
     accessibilityTree: root,
     clickableElements: [],
     treeHash: 'abc123',
-    domHash: 'def456',
+    domHash: 'def456', viewportHeight: 900,
     ...overrides,
   };
 }

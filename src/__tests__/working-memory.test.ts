@@ -12,7 +12,7 @@ function makeState(url = 'https://example.com'): BrowserState {
   return {
     sessionId: 'test', stepIndex: 0, timestamp: Date.now(),
     url, title: 'Test', tabs: [], accessibilityTree: root,
-    clickableElements: [], treeHash: 'x', domHash: 'y',
+    clickableElements: [], treeHash: 'x', domHash: 'y', viewportHeight: 900,
   };
 }
 

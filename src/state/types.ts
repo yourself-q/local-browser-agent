@@ -43,11 +43,7 @@ export interface SelectOption {
 
 export interface ClickableElement {
   nodeId: string;
-  /**
-   * Step-local display ID in ref_N format (ref_1, ref_2, …).
-   * Mirrors open-claude-in-chrome's element reference system.
-   * Assigned fresh each step — do NOT persist across steps.
-   */
+  /** Step-local display ID assigned fresh each step — do NOT persist across steps. */
   refId: string;
   role: string;
   name: string;
@@ -57,7 +53,7 @@ export interface ClickableElement {
   isDisabled: boolean;
   /** True when a radio/checkbox is currently checked, or an option is selected */
   isChecked?: boolean;
-  /** For <select> elements: all available options (mirrors reference impl) */
+  /** For <select> elements: all available options */
   options?: SelectOption[];
 }
 
@@ -81,8 +77,9 @@ export interface BrowserState {
   title: string;
   tabs: TabInfo[];
   accessibilityTree: AccessibilityNode;
-  /** Flattened list of all interactive nodes (derived from tree) */
   clickableElements: ClickableElement[];
+  /** Viewport height in CSS pixels at capture time */
+  viewportHeight: number;
   /** SHA1 of serialized a11y tree — used for change detection */
   treeHash: string;
   /** SHA1 of page outerHTML — used for DOM mutation detection */

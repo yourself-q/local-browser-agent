@@ -41,12 +41,7 @@ export class StateCapturer {
       }
     }
 
-    // ── DOM injection (mirrors open-claude-in-chrome ref system) ──────────────
-    // Inject data-agent-ref="ref_N" into every interactive DOM element across
-    // all frames. Returns ClickableElement list with refIds matching the DOM attrs.
-    // Grounding uses [data-agent-ref="ref_N"] CSS selector — 100% unambiguous,
-    // no role+name text search that could match the wrong element.
-    const clickableElements = await injectAgentRefs(page);
+    const { elements: clickableElements, viewportHeight } = await injectAgentRefs(page);
 
     const state: BrowserState = {
       sessionId: this.sessionId,
@@ -57,6 +52,7 @@ export class StateCapturer {
       tabs,
       accessibilityTree: a11yResult.tree,
       clickableElements,
+      viewportHeight,
       treeHash: a11yResult.treeHash,
       domHash: domSnapshot.hash,
       focusedNodeId: focusInfo ?? undefined,

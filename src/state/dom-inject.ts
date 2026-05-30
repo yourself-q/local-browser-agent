@@ -182,7 +182,7 @@ const INJECT_SCRIPT = /* js */ `
   }
 
   walk(document.body, 0);
-  return { elements: results, nextCounter: counter };
+  return { elements: results, nextCounter: counter, viewportHeight: window.innerHeight };
 })
 `;
 
@@ -202,6 +202,7 @@ interface RawElement {
 interface ScriptResult {
   elements: RawElement[];
   nextCounter: number;
+  viewportHeight: number;
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -214,28 +215,31 @@ interface ScriptResult {
  * can be resolved later via CSS selector [data-agent-ref="ref_N"].
  * Using a CSS selector is 100% unambiguous — no role+name text search needed.
  */
-export async function injectAgentRefs(page: Page): Promise<ClickableElement[]> {
+export interface InjectResult {
+  elements: ClickableElement[];
+  viewportHeight: number;
+}
+
+export async function injectAgentRefs(page: Page): Promise<InjectResult> {
   const all: ClickableElement[] = [];
   let counter = 0;
+  let viewportHeight = page.viewportSize()?.height ?? 900;
 
-  // Run in main frame first, then each sub-frame (mirrors all_frames:true in reference)
   const frames: Frame[] = [page.mainFrame(), ...page.frames().filter((f) => f !== page.mainFrame())];
 
   for (const frame of frames) {
     try {
-      // Evaluate the IIFE directly as a string expression — no new Function() wrapper.
-      // new Function('x', 'expr(x)') has no implicit return, so fn(start) === undefined.
-      // frame.evaluate(string) evaluates the string as an expression and returns its value.
       const scriptExpr = `(${INJECT_SCRIPT.trim()})(${counter})`;
       const result = await frame.evaluate(scriptExpr) as ScriptResult | null;
 
       if (!result || !Array.isArray(result.elements)) continue;
 
       counter = result.nextCounter;
+      if (frame === page.mainFrame()) viewportHeight = result.viewportHeight;
 
       for (const raw of result.elements as RawElement[]) {
         const el: ClickableElement = {
-          nodeId: raw.refId, // nodeId = refId for DOM-injected elements
+          nodeId: raw.refId,
           refId: raw.refId,
           role: raw.role,
           name: raw.name,
@@ -255,5 +259,5 @@ export async function injectAgentRefs(page: Page): Promise<ClickableElement[]> {
     }
   }
 
-  return all;
+  return { elements: all, viewportHeight };
 }
