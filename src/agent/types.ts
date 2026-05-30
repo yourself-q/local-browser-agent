@@ -1,0 +1,85 @@
+import type { ConversationTurn } from '../llm/types.js';
+import type { StateDelta } from '../state/types.js';
+
+// ─── Reference file ───────────────────────────────────────────────────────────
+
+export interface ReferenceFile {
+  name: string;
+  /** 'image' for PNG/JPG/GIF/WebP — sent as image_url every step. 'text' — injected into context. */
+  type: 'image' | 'text';
+  /** Base64-encoded bytes for images; UTF-8 string for text files. */
+  content: string;
+  /** MIME type, e.g. 'image/png'. Only for images. */
+  mimeType?: string;
+}
+
+// ─── Agent configuration ──────────────────────────────────────────────────────
+
+export interface AgentConfig {
+  task: string;
+  sessionId: string;
+  maxSteps: number;
+  stepTimeoutMs: number;
+  maxRetries: number;
+  humanApprovalMode: boolean;
+  /** When true: temperature=0, strict schemas, bounded iterations */
+  deterministicMode: boolean;
+  screenshotMode: 'always' | 'on_failure' | 'never';
+  model: string;
+  /** Max tokens the model may generate per step (default: 2048) */
+  maxTokens: number;
+  /** Strip Qwen3/DeepSeek <think>...</think> blocks (default: true) */
+  stripThinkingBlocks: boolean;
+  /** Use response_format: json_object (default: false — prompt-based is safer) */
+  jsonMode: boolean;
+  /** Files passed via --data. Text files go into task notes; images are sent every step. */
+  referenceFiles?: ReferenceFile[];
+  lmStudioBaseUrl: string;
+  lmStudioApiKey: string;
+  chromeDebuggingPort: number;
+  chromeDebuggingHost: string;
+  sessionsDir: string;
+}
+
+// ─── Loop state ───────────────────────────────────────────────────────────────
+
+export interface LoopState {
+  stepIndex: number;
+  consecutiveFailures: number;
+  history: ConversationTurn[];
+  lastDelta?: StateDelta;
+  done: boolean;
+  failed: boolean;
+  failureReason?: string;
+}
+
+// ─── Step result ──────────────────────────────────────────────────────────────
+
+export type StepOutcome =
+  | { type: 'success' }
+  | { type: 'skipped'; reason: string }
+  | { type: 'done' }
+  | { type: 'failed'; reason: string; recoverable: boolean };
+
+// ─── Verification ─────────────────────────────────────────────────────────────
+
+export interface VerificationResult {
+  passed: boolean;
+  delta: StateDelta;
+  /** What the verifier expected to see */
+  expectedChange: string;
+  /** What actually happened */
+  observedChange: string;
+}
+
+// ─── Agent result ─────────────────────────────────────────────────────────────
+
+export interface AgentResult {
+  sessionId: string;
+  task: string;
+  stepsRun: number;
+  success: boolean;
+  summary: string;
+  durationMs: number;
+  failureReason?: string;
+}
