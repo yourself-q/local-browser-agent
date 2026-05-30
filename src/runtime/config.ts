@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { config as dotenvConfig } from 'dotenv';
-import type { AgentConfig, ReferenceFile } from '../agent/types.js';
+import type { AgentConfig, ReferenceFile, CustomTool } from '../agent/types.js';
 
 dotenvConfig();
 
@@ -47,6 +47,15 @@ const EnvSchema = z.object({
     .string()
     .transform((v) => v === 'true' || v === '1')
     .default('false'),
+
+  // ── CAPTCHA / human intervention ─────────────────────────────────────────
+  // How long to wait for the user to manually solve a CAPTCHA (ms).
+  CAPTCHA_WAIT_TIMEOUT_MS: z.coerce.number().int().positive().default(300000), // 5 min
+
+  // ── OpenRouter / API gateway headers (optional) ───────────────────────────
+  // Recommended by OpenRouter: helps them understand usage and contact you if needed.
+  OPENROUTER_REFERER: z.string().optional(),
+  OPENROUTER_TITLE: z.string().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -80,6 +89,7 @@ export interface AgentConfigOverrides {
   model?: string;
   chromePort?: number;
   referenceFiles?: ReferenceFile[];
+  customTools?: CustomTool[];
 }
 
 export function buildAgentConfig(overrides: AgentConfigOverrides): AgentConfig {
@@ -103,5 +113,9 @@ export function buildAgentConfig(overrides: AgentConfigOverrides): AgentConfig {
     stripThinkingBlocks: env.STRIP_THINKING_BLOCKS as boolean,
     jsonMode: env.JSON_MODE as boolean,
     referenceFiles: overrides.referenceFiles,
+    customTools: overrides.customTools,
+    captchaWaitTimeoutMs: env.CAPTCHA_WAIT_TIMEOUT_MS as number,
+    httpReferer: env.OPENROUTER_REFERER,
+    xTitle: env.OPENROUTER_TITLE,
   };
 }

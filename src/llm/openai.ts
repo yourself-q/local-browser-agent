@@ -5,6 +5,7 @@ import { ActionDecisionSchema } from './types.js';
 import { buildSystemPrompt } from '../prompts/system.js';
 import { buildActionPrompt } from '../prompts/action.js';
 import { createLogger } from '../runtime/logger.js';
+import type { CustomTool } from '../tools/custom.js';
 
 const log = createLogger('llm');
 
@@ -40,6 +41,18 @@ export interface OpenAILLMConfig {
    * at the start of every API call so they're always in context.
    */
   referenceImages?: Array<{ name: string; base64: string; mimeType: string }>;
+  /** Custom tools injected by the MCP client — listed in system prompt. */
+  customTools?: CustomTool[];
+  /**
+   * Optional HTTP-Referer header.
+   * Required by OpenRouter to identify your app; ignored by other endpoints.
+   */
+  httpReferer?: string;
+  /**
+   * Optional X-Title header.
+   * Shown in OpenRouter dashboard for usage tracking; ignored by other endpoints.
+   */
+  xTitle?: string;
 }
 
 export const DEFAULT_LLM_CONFIG: Partial<OpenAILLMConfig> = {
@@ -55,10 +68,16 @@ export class OpenAILLMClient implements LLMClient {
 
   constructor(config: OpenAILLMConfig) {
     this.config = { ...DEFAULT_LLM_CONFIG, ...config } as OpenAILLMConfig;
+
+    const extraHeaders: Record<string, string> = {};
+    if (this.config.httpReferer) extraHeaders['HTTP-Referer'] = this.config.httpReferer;
+    if (this.config.xTitle) extraHeaders['X-Title'] = this.config.xTitle;
+
     this.client = new OpenAI({
       baseURL: this.config.baseUrl,
       apiKey: this.config.apiKey,
       timeout: 1800000, // 30 min — Qwen3-35B deep reasoning can take 10-15 min on complex pages
+      defaultHeaders: Object.keys(extraHeaders).length > 0 ? extraHeaders : undefined,
     });
   }
 
@@ -68,7 +87,7 @@ export class OpenAILLMClient implements LLMClient {
     task: string,
     context = '',
   ): Promise<LLMResponse> {
-    const systemPrompt = buildSystemPrompt(this.config.deterministicMode);
+    const systemPrompt = buildSystemPrompt(this.config.deterministicMode, this.config.customTools);
     const userPrompt = buildActionPrompt(
       task,
       state,

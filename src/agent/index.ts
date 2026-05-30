@@ -90,7 +90,7 @@ export class AgentOrchestrator {
     );
 
     const grounding = new GroundingEngine(visionProvider);
-    const executor = new ToolExecutorRegistry();
+    const executor = new ToolExecutorRegistry(config.customTools ?? []);
     const referenceImages = (config.referenceFiles ?? [])
       .filter((f) => f.type === 'image')
       .map((f) => ({
@@ -110,6 +110,9 @@ export class AgentOrchestrator {
       stripThinkingBlocks: config.stripThinkingBlocks ?? true,
       jsonMode: config.jsonMode ?? false,
       referenceImages: referenceImages.length > 0 ? referenceImages : undefined,
+      customTools: config.customTools,
+      httpReferer: config.httpReferer,
+      xTitle: config.xTitle,
     });
 
     // Initialize loop state

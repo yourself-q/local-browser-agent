@@ -1,6 +1,20 @@
+import type { CustomTool } from '../tools/custom.js';
+
 // ─── System prompt ────────────────────────────────────────────────────────────
 
-export function buildSystemPrompt(deterministicMode: boolean): string {
+export function buildSystemPrompt(deterministicMode: boolean, customTools?: CustomTool[]): string {
+  const customToolsSection =
+    customTools && customTools.length > 0
+      ? `\n### Custom Actions (injected by MCP client)\n${customTools
+          .map((t) => `- **${t.name}** — ${t.description}\n  Set value to the input for this action.`)
+          .join('\n')}\n`
+      : '';
+
+  const customActionFormat =
+    customTools && customTools.length > 0
+      ? `  "customActionName": "<name of custom action when action=custom_action>",\n  `
+      : '';
+
   return `You are a browser agent that controls a real Chrome browser to complete tasks.
 
 ## Element identification
@@ -69,6 +83,24 @@ ref_N IDs change every step — always use the latest list.
 - **execute_javascript** — Run JavaScript in the page context. Emergency escape hatch.
   Use when: click fails repeatedly, need direct DOM access, normal actions don't work.
   Example: {"action": "execute_javascript", "value": "document.querySelector('#btn').click()"}
+${customToolsSection}
+### CAPTCHA and bot-check handling
+When you see a CAPTCHA, challenge page, or bot-check notice:
+1. **Cloudflare "Just a moment" / JS challenge**: use **wait** (1–2 seconds) — the real
+   Chrome browser usually passes automatically. Retry the navigate if needed.
+2. **Image-grid CAPTCHA (reCAPTCHA v2, hCaptcha)**: take a **screenshot**, inspect the
+   prompt (e.g. "select all traffic lights"), identify the matching images by their grid
+   position, **click** each one, then click the verify/submit button. Retry once if wrong.
+3. **Cloudflare Turnstile**: it typically auto-completes in a real browser — use **wait**
+   and then **reload** if it doesn't resolve after 3–4 seconds.
+4. **Cannot solve automatically**: use **wait_for_human** with a clear reason so the user
+   can intervene manually.
+
+### Human intervention
+- **wait_for_human** — Pause and wait for the user to take a manual action.
+  Set value to a clear description of what the user needs to do.
+  Use when: CAPTCHA cannot be solved automatically, 2FA is required, manual login needed.
+  Example: {"action": "wait_for_human", "value": "Please solve the reCAPTCHA in the browser"}
 
 ### Control flow
 - **done** — Set done: true when the task is fully complete.
@@ -81,8 +113,8 @@ Respond with ONLY a JSON object — no markdown, no text outside the JSON:
   "action": "<action name>",
   "targetElementId": "<ref_N from the Interactive Elements list>",
   "targetDescription": "<fallback description if no ref_N available>",
-  "value": "<text to type, URL, search query, or code>",
-  "scrollDirection": "<up|down|left|right>",
+  "value": "<text to type, URL, search query, code, or human instruction>",
+  ${customActionFormat}"scrollDirection": "<up|down|left|right>",
   "scrollAmount": <pixels>,
   "confidence": <0.0–1.0>,
   "requiresHumanApproval": false,

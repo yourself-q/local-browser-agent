@@ -1,5 +1,6 @@
 import type { Page } from 'playwright';
 import type { AgentConfig, LoopState, StepOutcome, VerificationResult } from './types.js';
+import { detectCaptcha } from '../state/captcha.js';
 import type { StateCapturer } from '../state/index.js';
 import { diffStates } from '../state/index.js';
 import { captureDOMSnapshot } from '../state/dom.js';
@@ -80,17 +81,33 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
     '── State captured',
   );
 
+  // ── 1.5. CAPTCHA / bot-check detection ───────────────────────────────────
+  const captcha = await detectCaptcha(currentState, page);
+  if (captcha.detected) {
+    log.warn({ captchaType: captcha.type, url: currentState.url }, '── CAPTCHA detected');
+    events.emit('captcha.detected', {
+      type: captcha.type ?? 'unknown_bot_check',
+      description: captcha.description,
+      url: currentState.url,
+    });
+  }
+
   // ── 2. LLM decision ───────────────────────────────────────────────────────
   const history = ctx.memory.getConversationHistory(20);
 
-  // Build context, layering loop detection and recovery mode notices on top.
+  // Build context, layering CAPTCHA notice, loop detection, and recovery notices.
   const baseContext = ctx.memory.buildContext(currentState.url);
   const loopStatus = ctx.loopDetector.detect();
-  const context = loopStatus.looping
+
+  const captchaNotice = captcha.detected
+    ? `## ⚠️ CAPTCHA / BOT CHECK DETECTED\nType: ${captcha.type ?? 'unknown'} — ${captcha.description}\n\nHandling strategy:\n1. Cloudflare "Just a moment": use wait (1–2s) — real Chrome usually passes automatically.\n2. Image-grid CAPTCHA: take screenshot → identify matching images → click each → click verify.\n3. Turnstile: use wait then reload if not auto-resolved.\n4. Cannot solve: use wait_for_human with a clear reason.\n\n`
+    : '';
+
+  const context = captchaNotice + (loopStatus.looping
     ? `## 🔄 LOOP DETECTED — ${loopStatus.description}\nStop repeating this pattern. Take a fundamentally different approach: try a completely different element, navigate elsewhere, use execute_javascript, or take a screenshot to inspect the current state.\n\n${baseContext}`
     : state.consecutiveFailures >= 2
       ? `## ⚠️ RECOVERY MODE — ${state.consecutiveFailures} consecutive failures\nYou are stuck. Do NOT retry the same action. Fundamentally change your approach: try a different element, use execute_javascript, take a screenshot to inspect, or navigate away and back.\n\n${baseContext}`
-      : baseContext;
+      : baseContext);
 
   let decision: ActionDecision;
   try {
@@ -170,6 +187,7 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
     'find_on_page',
     'switch_tab', 'close_tab',
     'search', 'execute_python', 'execute_javascript',
+    'wait_for_human', 'custom_action',
   ]);
 
   const domSnapshot = await captureDOMSnapshot(page);
@@ -385,7 +403,10 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
     decision.action === 'dom_snapshot' ||
     decision.action === 'search' ||
     decision.action === 'execute_python' ||
-    decision.action === 'execute_javascript'
+    decision.action === 'execute_javascript' ||
+    // Human intervention and custom actions don't guarantee a DOM change
+    decision.action === 'wait_for_human' ||
+    decision.action === 'custom_action'
   ) {
     events.emit('verification.passed', verification);
     state.consecutiveFailures = 0;

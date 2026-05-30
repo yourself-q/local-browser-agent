@@ -68,6 +68,19 @@ export async function connectToChrome(config: CDPConfig = DEFAULT_CDP_CONFIG): P
 
       log.info({ endpoint, pages: context.pages().length }, 'Connected to Chrome');
 
+      // Mask navigator.webdriver on every future page load.
+      // Regular user Chrome does not set this flag, but CDP attachment can expose it
+      // to bot-detection scripts. addInitScript() registers the patch for all new
+      // documents navigated to in this session.
+      try {
+        await context.addInitScript(() => {
+          Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        });
+      } catch {
+        // Non-critical — some CDP versions may not support addInitScript on attached contexts
+        log.debug('Could not register webdriver stealth patch (non-critical)');
+      }
+
       return { browser, context, wsEndpoint: endpoint };
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));

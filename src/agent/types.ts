@@ -1,4 +1,7 @@
 import type { StateDelta } from '../state/types.js';
+import type { CustomTool } from '../tools/custom.js';
+
+export type { CustomTool } from '../tools/custom.js';
 
 // ─── Reference file ───────────────────────────────────────────────────────────
 
@@ -33,6 +36,14 @@ export interface AgentConfig {
   jsonMode: boolean;
   /** Files passed via --data. Text files go into task notes; images are sent every step. */
   referenceFiles?: ReferenceFile[];
+  /** Custom tools injected via MCP client. Each becomes a new LLM action. */
+  customTools?: CustomTool[];
+  /** How long to wait for human input when wait_for_human is triggered (ms, default 5min) */
+  captchaWaitTimeoutMs: number;
+  /** Optional HTTP-Referer header for OpenRouter / API gateways */
+  httpReferer?: string;
+  /** Optional X-Title header for OpenRouter */
+  xTitle?: string;
   lmStudioBaseUrl: string;
   lmStudioApiKey: string;
   chromeDebuggingPort: number;

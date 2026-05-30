@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { createLogger } from '../runtime/logger.js';
 import { buildAgentConfig } from '../runtime/config.js';
 import { AgentOrchestrator } from '../agent/index.js';
+import { CustomToolSchema } from '../tools/custom.js';
 import { randomUUID } from 'node:crypto';
 
 const log = createLogger('mcp');
@@ -33,6 +34,22 @@ export async function startMCPServer(_port: number): Promise<void> {
             maxSteps: { type: 'number', description: 'Maximum steps (default 50)' },
             deterministicMode: { type: 'boolean', description: 'Enable deterministic execution' },
             chromePort: { type: 'number', description: 'Chrome debugging port (default 9222)' },
+            customTools: {
+              type: 'array',
+              description: 'Optional custom actions to inject into the agent',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string', description: 'Action name (lowercase, e.g. fill_field)' },
+                  description: { type: 'string', description: 'One-line description shown to the LLM' },
+                  jsTemplate: {
+                    type: 'string',
+                    description: 'JavaScript executed in page context. Use ${value} for the LLM-supplied value.',
+                  },
+                },
+                required: ['name', 'description', 'jsTemplate'],
+              },
+            },
           },
           required: ['task'],
         },
@@ -73,6 +90,7 @@ export async function startMCPServer(_port: number): Promise<void> {
               maxSteps: z.number().optional(),
               deterministicMode: z.boolean().optional(),
               chromePort: z.number().optional(),
+              customTools: z.array(CustomToolSchema).optional(),
             })
             .parse(args);
 
@@ -82,6 +100,7 @@ export async function startMCPServer(_port: number): Promise<void> {
             deterministicMode: input.deterministicMode,
             maxSteps: input.maxSteps,
             chromePort: input.chromePort,
+            customTools: input.customTools,
           });
 
           const orchestrator = new AgentOrchestrator(config);

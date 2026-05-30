@@ -22,16 +22,23 @@ import { SearchTool } from './primitives/search.js';
 import { ExecutePythonTool } from './primitives/execute-python.js';
 import { JavascriptTool } from './primitives/javascript.js';
 import { FindOnPageTool } from './primitives/find-on-page.js';
+import { WaitForHumanTool } from './primitives/wait-for-human.js';
 
 // Symbolic
 import { SubmitFormAction } from './symbolic/submit-form.js';
 import { CloseModalAction } from './symbolic/close-modal.js';
+
+// Custom tools
+import type { CustomTool } from './custom.js';
+import { renderJsTemplate } from './custom.js';
 
 export type { ExecutionResult, ToolContext } from './types.js';
 
 // ─── Tool executor ────────────────────────────────────────────────────────────
 
 export class ToolExecutorRegistry {
+  constructor(private readonly customTools: CustomTool[] = []) {}
+
   async execute(
     decision: ActionDecision,
     element: GroundedElement | undefined,
@@ -153,6 +160,29 @@ export class ToolExecutorRegistry {
 
       case 'execute_javascript':
         return JavascriptTool.execute({ code: decision.value ?? '' }, ctx);
+
+      case 'wait_for_human': {
+        const timeoutMs = Number(process.env['CAPTCHA_WAIT_TIMEOUT_MS'] ?? 300000);
+        return WaitForHumanTool.execute(
+          { reason: decision.value ?? 'Human action required', timeoutMs },
+          ctx,
+        );
+      }
+
+      case 'custom_action': {
+        const toolName = decision.customActionName;
+        const tool = this.customTools.find((t) => t.name === toolName);
+        if (!tool) {
+          return {
+            success: false,
+            action: 'custom_action',
+            durationMs: 0,
+            error: `Unknown custom tool: "${toolName}". Available: ${this.customTools.map((t) => t.name).join(', ') || '(none)'}`,
+          };
+        }
+        const code = renderJsTemplate(tool.jsTemplate, decision.value ?? '');
+        return JavascriptTool.execute({ code }, ctx);
+      }
 
       case 'done':
       case 'fail':

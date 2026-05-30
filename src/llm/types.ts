@@ -29,6 +29,10 @@ export const ActionTypeSchema = z.enum([
   'search',
   'execute_python',
   'execute_javascript',
+  // Human intervention
+  'wait_for_human',
+  // MCP-injected custom actions
+  'custom_action',
   // Control flow
   'done',
   'fail',
@@ -97,6 +101,11 @@ export const ActionDecisionSchema = z.object({
    * Maximum 3 follow-ups. Omit (or set null) when not needed.
    */
   nextActions: z.array(FollowUpActionSchema).max(3).nullish().transform((v) => v ?? undefined),
+  /**
+   * For custom_action: the registered tool name to dispatch (e.g. "fill_company_field").
+   * Required when action === 'custom_action', ignored otherwise.
+   */
+  customActionName: z.string().nullish().transform((v) => v ?? undefined),
 });
 
 export type ActionDecision = z.infer<typeof ActionDecisionSchema>;

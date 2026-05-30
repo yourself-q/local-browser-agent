@@ -27,6 +27,7 @@ export type AgentEventType =
   | 'recovery.triggered'
   | 'recovery.succeeded'
   | 'recovery.exhausted'
+  | 'captcha.detected'
   | 'task.complete'
   | 'task.failed';
 
@@ -53,6 +54,7 @@ export interface EventPayloads {
   'recovery.triggered': { reason: string; strategy: string; attempt: number };
   'recovery.succeeded': { strategy: string };
   'recovery.exhausted': { reason: string; totalAttempts: number };
+  'captcha.detected': { type: string; description: string; url: string };
   'task.complete': { stepsRun: number; summary: string };
   'task.failed': { reason: string; lastError?: string };
 }
