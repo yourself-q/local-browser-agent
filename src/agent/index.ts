@@ -116,7 +116,6 @@ export class AgentOrchestrator {
     const loopState: LoopState = {
       stepIndex: 0,
       consecutiveFailures: 0,
-      history: [],
       done: false,
       failed: false,
     };

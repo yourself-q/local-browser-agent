@@ -36,19 +36,14 @@ export class MemoryManager {
   }
 
   /** Compact context for LLM — combines recent actions + task notes */
-  buildContext(url: string): string {
+  buildContext(_url: string): string {
     const notes = this.episodic.getNotes(this.sessionId);
-    const facts = this.episodic.getPageFacts(this.sessionId, url);
     const recentActions = this.working.buildRecentActionsContext();
 
     const parts: string[] = [`## Recent Actions\n${recentActions}`];
 
     if (notes.length > 0) {
       parts.push(`## Task Notes\n${notes.join('\n')}`);
-    }
-
-    if (facts.length > 0) {
-      parts.push(`## Page Facts for ${url}\n${facts.join('\n')}`);
     }
 
     return parts.join('\n\n');

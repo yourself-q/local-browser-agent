@@ -1,4 +1,3 @@
-import type { ConversationTurn } from '../llm/types.js';
 import type { StateDelta } from '../state/types.js';
 
 // ─── Reference file ───────────────────────────────────────────────────────────
@@ -46,7 +45,6 @@ export interface AgentConfig {
 export interface LoopState {
   stepIndex: number;
   consecutiveFailures: number;
-  history: ConversationTurn[];
   lastDelta?: StateDelta;
   done: boolean;
   failed: boolean;

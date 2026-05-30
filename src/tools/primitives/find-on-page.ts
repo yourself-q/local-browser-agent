@@ -29,7 +29,7 @@ export class FindOnPageTool {
       let regex: RegExp;
       try {
         regex = regexLiteral
-          ? new RegExp(regexLiteral[1]!, regexLiteral[2] ?? 'gi')
+          ? new RegExp(regexLiteral[1]!, regexLiteral[2] || 'gi')
           : new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
       } catch {
         return { success: false, action: 'find_on_page', durationMs: Date.now() - start, error: `Invalid regex: ${pattern}` };
