@@ -4,6 +4,19 @@
 
 Local-first browser agent runtime.
 
+## Why?
+
+Most browser agents require an OpenAI or Anthropic API key. Every page screenshot, every DOM snapshot, every decision gets sent to a third-party server — and billed.
+
+This project is built on two principles:
+
+- **Zero cost.** Runs entirely on local LLMs (LM Studio, Ollama, vLLM). No API key, no usage bill, no token limits imposed by someone else's pricing tier.
+- **Zero data leaving your machine.** Your browsing, your credentials, your page content stay local. Nothing is sent to external services.
+
+If you have a GPU and a local model, you have a fully functional browser agent.
+
+---
+
 - Attaches to your **existing Chrome session** via CDP — no sandboxed Chromium, no profile loss.
 - **`data-agent-ref` grounding** — injects stable CSS attributes into every interactive element each step, resolves via exact selector before falling back to DOM fuzzy match, then vision.
 - **Loop detection** — detects when the same `(action, target)` repeats 3+ times in a 10-step window and forces a strategy change.
