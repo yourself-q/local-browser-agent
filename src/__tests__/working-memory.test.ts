@@ -34,7 +34,6 @@ describe('WorkingMemory', () => {
   it('starts empty', () => {
     const mem = new WorkingMemory();
     expect(mem.getLastState()).toBeNull();
-    expect(mem.getConsecutiveFailures()).toBe(0);
     expect(mem.getRecentActions()).toHaveLength(0);
   });
 
@@ -47,21 +46,6 @@ describe('WorkingMemory', () => {
     expect(mem.getLastState()).toEqual(state);
     expect(mem.getLastDecision()).toEqual(decision);
     expect(mem.getLastResult()).toEqual(result);
-  });
-
-  it('increments consecutive failures on failure', () => {
-    const mem = new WorkingMemory();
-    mem.update(makeDecision(), makeResult(false), makeState());
-    mem.update(makeDecision(), makeResult(false), makeState());
-    expect(mem.getConsecutiveFailures()).toBe(2);
-  });
-
-  it('resets consecutive failures on success', () => {
-    const mem = new WorkingMemory();
-    mem.update(makeDecision(), makeResult(false), makeState());
-    mem.update(makeDecision(), makeResult(false), makeState());
-    mem.update(makeDecision(), makeResult(true), makeState());
-    expect(mem.getConsecutiveFailures()).toBe(0);
   });
 
   it('caps recent actions at 10', () => {
@@ -77,7 +61,6 @@ describe('WorkingMemory', () => {
     mem.update(makeDecision(), makeResult(false), makeState());
     mem.reset();
     expect(mem.getLastState()).toBeNull();
-    expect(mem.getConsecutiveFailures()).toBe(0);
     expect(mem.getRecentActions()).toHaveLength(0);
   });
 

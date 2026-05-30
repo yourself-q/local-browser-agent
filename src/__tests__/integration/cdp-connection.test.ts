@@ -184,8 +184,13 @@ describe('State diffing via navigation', () => {
 
     const urlBefore = page.url();
 
-    // Navigate to a different page
-    await page.goto('https://example.com', { waitUntil: 'domcontentloaded', timeout: 10000 });
+    // Pick a navigation target that is guaranteed different from the current URL so
+    // diffStates always observes a real change, regardless of which tab happens to
+    // be page[0] across test runs.
+    const targetUrl = urlBefore.startsWith('https://example.com')
+      ? 'https://www.iana.org/domains/reserved'
+      : 'https://example.com';
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
     await page.waitForTimeout(1000);
 
     // Capture after state

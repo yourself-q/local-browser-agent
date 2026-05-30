@@ -6,6 +6,7 @@ import type { BrowserState } from '../state/types.js';
 import type { DOMSnapshot } from '../state/dom.js';
 import type { ExecutionResult, ToolContext } from './types.js';
 import type { SymbolicActionContext } from './symbolic/types.js';
+import type { TabManager } from '../browser/tabs.js';
 
 // Primitives
 import { ClickTool } from './primitives/click.js';
@@ -39,6 +40,7 @@ export class ToolExecutorRegistry {
     domSnapshot: DOMSnapshot,
     sessionId: string,
     stepIndex: number,
+    tabManager: TabManager,
   ): Promise<ExecutionResult> {
     const ctx: ToolContext = { page, sessionId, stepIndex };
     const symCtx: SymbolicActionContext = { page, grounding, state, domSnapshot, sessionId, stepIndex };
@@ -83,13 +85,16 @@ export class ToolExecutorRegistry {
       case 'reload':
         return ReloadTool.execute({}, ctx);
 
-      case 'switch_tab':
-        return {
-          success: false,
-          action: 'switch_tab',
-          durationMs: 0,
-          error: 'Use TabManager.switchToTab() for tab switching',
-        };
+      case 'switch_tab': {
+        const start = Date.now();
+        try {
+          const index = decision.tabIndex ?? 0;
+          await tabManager.switchToTab(index);
+          return { success: true, action: 'switch_tab', durationMs: Date.now() - start };
+        } catch (err) {
+          return { success: false, action: 'switch_tab', durationMs: Date.now() - start, error: String(err) };
+        }
+      }
 
       case 'extract_content':
         return ExtractContentTool.execute({ format: 'text' }, ctx);
@@ -120,9 +125,21 @@ export class ToolExecutorRegistry {
       case 'open_search_result':
         return ClickTool.execute({ element, button: 'left' }, ctx);
 
-      case 'close_tab':
-        // Tab close is handled at the orchestrator level via TabManager
-        return { success: false, action: 'close_tab', durationMs: 0, error: 'Use TabManager.closeTab() for tab closing' };
+      case 'close_tab': {
+        const start = Date.now();
+        try {
+          let targetIndex = decision.tabIndex;
+          if (targetIndex === undefined) {
+            const tabs = await tabManager.getAllTabs();
+            targetIndex = tabs.findIndex((t) => t.isActive);
+            if (targetIndex < 0) targetIndex = 0;
+          }
+          await tabManager.closeTab(targetIndex);
+          return { success: true, action: 'close_tab', durationMs: Date.now() - start };
+        } catch (err) {
+          return { success: false, action: 'close_tab', durationMs: Date.now() - start, error: String(err) };
+        }
+      }
 
       case 'search':
         return SearchTool.execute({ query: decision.value ?? '', count: 5 }, ctx);

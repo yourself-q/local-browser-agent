@@ -130,6 +130,7 @@ export class AgentOrchestrator {
       llm,
       memory,
       events,
+      tabManager: pageWrapper.tabs,
     };
 
     // ── Main agent loop ───────────────────────────────────────────────────────

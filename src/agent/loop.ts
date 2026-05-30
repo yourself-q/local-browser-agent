@@ -12,6 +12,7 @@ import { buildRecoveryPrompt } from '../prompts/recovery.js';
 import { createLogger } from '../runtime/logger.js';
 import type { BrowserState } from '../state/types.js';
 import type { ActionDecision } from '../llm/types.js';
+import type { TabManager } from '../browser/tabs.js';
 
 const log = createLogger('agent:loop');
 
@@ -27,6 +28,7 @@ export interface LoopContext {
   llm: OpenAILLMClient;
   memory: MemoryManager;
   events: EventStore;
+  tabManager: TabManager;
 }
 
 // ─── Single agent step ────────────────────────────────────────────────────────
@@ -226,7 +228,27 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
     domSnapshot,
     config.sessionId,
     stepIndex,
+    ctx.tabManager,
   );
+
+  // ── 6.5. Tab switch/close: update active page and skip verification ─────────
+  // State from the previous page is meaningless after switching — the next step
+  // will capture a fresh snapshot from the new active page.
+  if ((decision.action === 'switch_tab' || decision.action === 'close_tab') && execResult.success) {
+    ctx.page = ctx.tabManager.getActivePage();
+    events.emit('verification.passed', {
+      passed: true,
+      delta: { anythingChanged: true, fromStep: stepIndex, toStep: stepIndex, urlChanged: false, treeChanged: false, domChanged: false, focusChanged: false, nodesAdded: [], nodesRemoved: [], tabsChanged: true, modals: [] },
+      expectedChange: `Tab ${decision.action}`,
+      observedChange: 'Active page updated',
+    });
+    state.consecutiveFailures = 0;
+    ctx.memory.record(decision, execResult, currentState);
+    if (decision.remember) {
+      ctx.memory.episodic.addNote(config.sessionId, stepIndex, `[Memory @ step ${stepIndex}] ${decision.remember}`);
+    }
+    return { type: 'success' };
+  }
 
   if (!execResult.success) {
     events.emit('action.failed', execResult);
@@ -339,11 +361,10 @@ async function verifyPostActionState(
   decision: ActionDecision,
   stepIndex: number,
 ): Promise<VerificationResult> {
-  // Wait briefly for the page to settle (form submissions / AJAX updates)
-  await page.waitForTimeout(800);
-
-  // Wait for network idle — increased to 5s to handle server-side form processing
-  // (e.g. ASP pages that do a round-trip POST before redirecting to result page)
+  // Wait for DOMContentLoaded (resolves near-instantly if the page is already loaded,
+  // catches synchronous DOM mutations after clicks/form submits without a fixed sleep).
+  await page.waitForLoadState('domcontentloaded', { timeout: 2000 }).catch(() => {});
+  // Then wait for network idle to catch AJAX / server-side round-trips (e.g. ASP POST→redirect).
   await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
 
   try {

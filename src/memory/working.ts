@@ -15,7 +15,6 @@ export class WorkingMemory {
   private lastState: BrowserState | null = null;
   private lastDecision: ActionDecision | null = null;
   private lastResult: ExecutionResult | null = null;
-  private consecutiveFailures = 0;
   private readonly recentActions: Array<{ decision: ActionDecision; result: ExecutionResult }> = [];
   private readonly MAX_RECENT = 10;
 
@@ -23,12 +22,6 @@ export class WorkingMemory {
     this.lastState = state;
     this.lastDecision = decision;
     this.lastResult = result;
-
-    if (!result.success) {
-      this.consecutiveFailures++;
-    } else {
-      this.consecutiveFailures = 0;
-    }
 
     this.recentActions.push({ decision, result });
     if (this.recentActions.length > this.MAX_RECENT) {
@@ -46,10 +39,6 @@ export class WorkingMemory {
 
   getLastResult(): ExecutionResult | null {
     return this.lastResult;
-  }
-
-  getConsecutiveFailures(): number {
-    return this.consecutiveFailures;
   }
 
   getRecentActions(): Array<{ decision: ActionDecision; result: ExecutionResult }> {
@@ -74,7 +63,6 @@ export class WorkingMemory {
     this.lastState = null;
     this.lastDecision = null;
     this.lastResult = null;
-    this.consecutiveFailures = 0;
     this.recentActions.length = 0;
   }
 }
