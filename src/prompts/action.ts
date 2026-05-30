@@ -10,9 +10,7 @@ export function buildActionPrompt(
   maxSteps: number,
 ): string {
   const clickableList = state.clickableElements
-    // Reference impl shows ALL interactive elements — no name filter.
-    // Unnamed textboxes (no aria-label/placeholder/label) must be visible so the LLM can type into them.
-    .slice(0, 60) // 60 elements — keep context window sane
+    .slice(0, 60)
     .map((el) => {
       const name = el.name.slice(0, 80);
       const value = el.value ? ` (value: "${el.value.slice(0, 40)}")` : '';
@@ -55,9 +53,8 @@ ${clickableList || '  (no interactive elements found)'}
 ${context}
 
 ## Important Notes
-- The accessibility tree above already contains ALL interactive elements currently in the DOM.
-- For static/server-rendered pages (like news sites, wikis, search results), scrolling does NOT reveal new elements in the tree. If you need to read text content that isn't captured in the element names above, use "extract_content" to get the full page text.
-- Only use scroll if you genuinely need to bring an element into view to interact with it.
+- Use "extract_content" to read page text — do not scroll through content just to read it.
+- Use scroll only to bring a specific element into view for interaction.
 
 ## Instruction
 Choose the next action to make progress toward the task.

@@ -22,13 +22,14 @@ export const ScrollTool: ToolExecutor<{
           { dx: deltaX, dy: deltaY },
         );
       } else {
-        await ctx.page.mouse.wheel(deltaX, deltaY);
+        await ctx.page.evaluate(({ dx, dy }) => window.scrollBy(dx, dy), { dx: deltaX, dy: deltaY });
       }
 
       // Brief wait for scroll animations
       await ctx.page.waitForTimeout(300);
 
-      return { success: true, action: 'scroll', durationMs: Date.now() - start };
+      const scrollY = await ctx.page.evaluate(() => window.scrollY);
+      return { success: true, action: 'scroll', durationMs: Date.now() - start, output: `Scrolled. Current scrollY: ${scrollY}px` };
     } catch (err) {
       return { success: false, action: 'scroll', durationMs: Date.now() - start, error: String(err) };
     }
