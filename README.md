@@ -1,5 +1,7 @@
 # browser-agent
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/yourself-q/local-browser-agent)
+
 Local-first browser agent runtime.
 
 - Attaches to your **existing Chrome session** via CDP — no sandboxed Chromium, no profile loss.
