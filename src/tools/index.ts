@@ -49,8 +49,9 @@ export class ToolExecutorRegistry {
     sessionId: string,
     stepIndex: number,
     tabManager: TabManager,
+    captchaWaitTimeoutMs: number,
   ): Promise<ExecutionResult> {
-    const ctx: ToolContext = { page, sessionId, stepIndex };
+    const ctx: ToolContext = { page, sessionId, stepIndex, captchaWaitTimeoutMs };
     const symCtx: SymbolicActionContext = { page, grounding, state, domSnapshot, sessionId, stepIndex };
 
     switch (decision.action) {
@@ -161,13 +162,11 @@ export class ToolExecutorRegistry {
       case 'execute_javascript':
         return JavascriptTool.execute({ code: decision.value ?? '' }, ctx);
 
-      case 'wait_for_human': {
-        const timeoutMs = Number(process.env['CAPTCHA_WAIT_TIMEOUT_MS'] ?? 300000);
+      case 'wait_for_human':
         return WaitForHumanTool.execute(
-          { reason: decision.value ?? 'Human action required', timeoutMs },
+          { reason: decision.value ?? 'Human action required', timeoutMs: ctx.captchaWaitTimeoutMs },
           ctx,
         );
-      }
 
       case 'custom_action': {
         const toolName = decision.customActionName;

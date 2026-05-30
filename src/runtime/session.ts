@@ -19,7 +19,7 @@ export interface SessionMeta {
 
 export class SessionManager {
   private readonly dir: string;
-  private meta!: SessionMeta;
+  private meta: SessionMeta | undefined;
 
   constructor(private readonly sessionsDir: string) {
     this.dir = sessionsDir;
@@ -105,6 +105,7 @@ export class SessionManager {
   }
 
   end(sessionId: string, status: 'complete' | 'failed' | 'cancelled', stepsRun: number): void {
+    if (!this.meta) throw new Error('SessionManager.end() called before start() or resume()');
     this.meta = {
       ...this.meta,
       endedAt: Date.now(),

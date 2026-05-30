@@ -99,4 +99,5 @@ export interface ToolContext {
   page: import('playwright').Page;
   sessionId: string;
   stepIndex: number;
+  captchaWaitTimeoutMs: number;
 }

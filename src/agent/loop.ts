@@ -17,6 +17,31 @@ import type { ActionLoopDetector } from './loop-detector.js';
 
 const log = createLogger('agent:loop');
 
+// ─── Action classification sets ───────────────────────────────────────────────
+
+// Actions that require no DOM element for grounding (execute directly).
+// Note: navigate/go_back/reload/switch_tab etc. ARE here because they need no
+// target element, but they DO change DOM state so they are NOT in VERIFICATION_SKIP.
+const ELEMENTLESS_ACTIONS = new Set([
+  'navigate', 'go_back', 'go_forward', 'reload', 'wait',
+  'screenshot', 'accessibility_dump', 'dom_snapshot', 'extract_content',
+  'find_on_page',
+  'switch_tab', 'close_tab',
+  'search', 'execute_python', 'execute_javascript',
+  'wait_for_human', 'custom_action',
+]);
+
+// Actions where no DOM change is expected after execution — skip verification penalty.
+// Note: scroll IS here (moves viewport, not DOM) but is NOT in ELEMENTLESS (it targets elements).
+// navigate/go_back etc. are NOT here — they cause full page navigations (DOM changes).
+const VERIFICATION_SKIP_ACTIONS = new Set([
+  'wait', 'scroll',
+  'extract_content', 'find_on_page',
+  'screenshot', 'accessibility_dump', 'dom_snapshot',
+  'search', 'execute_python', 'execute_javascript',
+  'wait_for_human', 'custom_action',
+]);
+
 // ─── Loop context ─────────────────────────────────────────────────────────────
 
 export interface LoopContext {
@@ -181,14 +206,6 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
   // ── 5. Ground the action (skip for element-free actions) ─────────────────
   // Actions like navigate/go_back/wait don't target a DOM element.
   // Running grounding on them always fails → skip and execute directly.
-  const ELEMENTLESS_ACTIONS = new Set([
-    'navigate', 'go_back', 'go_forward', 'reload', 'wait',
-    'screenshot', 'accessibility_dump', 'dom_snapshot', 'extract_content',
-    'find_on_page',
-    'switch_tab', 'close_tab',
-    'search', 'execute_python', 'execute_javascript',
-    'wait_for_human', 'custom_action',
-  ]);
 
   const domSnapshot = await captureDOMSnapshot(page);
 
@@ -253,6 +270,7 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
     config.sessionId,
     stepIndex,
     ctx.tabManager,
+    config.captchaWaitTimeoutMs,
   );
 
   // ── 6.5. Tab switch/close: update active page and skip verification ─────────
@@ -326,6 +344,7 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
         followUpDecision, followUpElement, ctx.page,
         ctx.grounding, currentState, domSnapshot,
         config.sessionId, stepIndex, ctx.tabManager,
+        config.captchaWaitTimeoutMs,
       );
 
       log.info({ stepIndex, followUpIndex: i + 1, action: followUp.action, success: fuResult.success }, `── nextAction ${i + 1} ${fuResult.success ? 'OK' : 'FAILED'}`);
@@ -392,22 +411,7 @@ export async function runAgentStep(ctx: LoopContext): Promise<StepOutcome> {
   if (verification.delta.anythingChanged) {
     events.emit('verification.passed', verification);
     state.consecutiveFailures = 0;
-  } else if (
-    decision.action === 'wait' ||
-    decision.action === 'scroll' ||
-    // Read-only / query actions never change DOM state — don't penalize them
-    decision.action === 'extract_content' ||
-    decision.action === 'find_on_page' ||
-    decision.action === 'screenshot' ||
-    decision.action === 'accessibility_dump' ||
-    decision.action === 'dom_snapshot' ||
-    decision.action === 'search' ||
-    decision.action === 'execute_python' ||
-    decision.action === 'execute_javascript' ||
-    // Human intervention and custom actions don't guarantee a DOM change
-    decision.action === 'wait_for_human' ||
-    decision.action === 'custom_action'
-  ) {
+  } else if (VERIFICATION_SKIP_ACTIONS.has(decision.action)) {
     events.emit('verification.passed', verification);
     state.consecutiveFailures = 0;
   } else {

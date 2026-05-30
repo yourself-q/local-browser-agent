@@ -329,6 +329,19 @@ export function parseDecision(rawContent: string): ActionDecision {
 
 // ─── Message normalization ────────────────────────────────────────────────────
 
+function extractAssistantText(
+  content: OpenAI.Chat.ChatCompletionAssistantMessageParam['content'],
+): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter((p): p is OpenAI.Chat.ChatCompletionContentPartText => p.type === 'text')
+      .map((p) => p.text)
+      .join('');
+  }
+  return '';
+}
+
 /**
  * Qwen3's Jinja chat template requires strict user/assistant alternation.
  * Consecutive messages with the same role cause a 400 "No user query found in messages."
@@ -385,8 +398,8 @@ export function mergeConsecutiveMessages(
       } else if (msg.role === 'assistant') {
         const lastAsst = last as OpenAI.Chat.ChatCompletionAssistantMessageParam;
         const curAsst = msg as OpenAI.Chat.ChatCompletionAssistantMessageParam;
-        const a = typeof lastAsst.content === 'string' ? lastAsst.content : '';
-        const b = typeof curAsst.content === 'string' ? curAsst.content : '';
+        const a = extractAssistantText(lastAsst.content);
+        const b = extractAssistantText(curAsst.content);
         result[result.length - 1] = { role: 'assistant', content: `${a}\n\n${b}` };
       } else {
         // Fallback: just push (shouldn't happen for system messages).
