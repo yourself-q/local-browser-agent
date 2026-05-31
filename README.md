@@ -21,6 +21,10 @@ If you have a GPU and a local model, you have a fully functional browser agent.
 
 ![Form input demo](assets/demo2.gif)
 
+**Text input and multiple choice** — reads each question, types text answers and selects the correct options:
+
+![Text and select demo](assets/demo1.gif)
+
 ---
 
 - Attaches to your **existing Chrome session** via CDP — no sandboxed Chromium, no profile loss.
