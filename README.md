@@ -17,7 +17,7 @@ If you have a GPU and a local model, you have a fully functional browser agent.
 
 ## Demo
 
-**Form input** — filling out a form using a local answer file, zero API calls:
+**Autonomous form solving** — reads the page, reasons about each question, and inputs answers on its own. No API calls, no external services:
 
 ![Form input demo](assets/demo2.gif)
 
