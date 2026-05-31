@@ -130,7 +130,14 @@ export class OpenAILLMClient implements LLMClient {
         ? [...refImageMessages, { role: 'assistant' as const, content: 'Reference image(s) noted.' }]
         : [];
 
-    const historySlice = history.slice(-this.config.maxContextTurns);
+    // Ensure the slice starts with a user turn — Qwen3's Jinja template requires
+    // the first non-system message to be a user message. When maxContextTurns is
+    // odd and total history is even (or vice versa), the slice may start with
+    // an assistant turn, causing "No user query found in messages."
+    let historySlice = history.slice(-this.config.maxContextTurns);
+    if (historySlice.length > 0 && historySlice[0].role !== 'user') {
+      historySlice = historySlice.slice(1);
+    }
     const rawMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
       ...refSection,

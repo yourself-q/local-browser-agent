@@ -52,7 +52,7 @@ export const FollowUpActionSchema = z.object({
   targetElementId: z.string().nullish().transform((v) => v ?? undefined),
   targetDescription: z.string().nullish().transform((v) => v ?? undefined),
   value: z.string().nullish().transform((v) => v ?? undefined),
-  scrollDirection: z.enum(['up', 'down', 'left', 'right']).nullish().transform((v) => v ?? undefined),
+  scrollDirection: z.enum(['up', 'down', 'left', 'right']).nullish().catch(undefined).transform((v) => v ?? undefined),
   scrollAmount: z.number().nullish().transform((v) => (v != null && v > 0 ? Math.round(v) : undefined)),
   tabIndex: z.number().int().min(0).nullish().transform((v) => v ?? undefined),
 });
@@ -73,7 +73,7 @@ export const ActionDecisionSchema = z.object({
   /** For 'type' and 'navigate': the text or URL value */
   value: z.string().nullish().transform((v) => v ?? undefined),
   /** For 'scroll': direction */
-  scrollDirection: z.enum(['up', 'down', 'left', 'right']).nullish().transform((v) => v ?? undefined),
+  scrollDirection: z.enum(['up', 'down', 'left', 'right']).nullish().catch(undefined).transform((v) => v ?? undefined),
   /** For 'scroll': pixel amount — coerce 0/null/undefined to undefined; keep positive values */
   scrollAmount: z.number().nullish().transform((v) => (v != null && v > 0 ? Math.round(v) : undefined)),
   /** For 'switch_tab': tab index */
