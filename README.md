@@ -15,6 +15,12 @@ This project is built on two principles:
 
 If you have a GPU and a local model, you have a fully functional browser agent.
 
+## Demo
+
+**Form input** — filling out a form using a local answer file, zero API calls:
+
+![Form input demo](assets/demo2.gif)
+
 ---
 
 - Attaches to your **existing Chrome session** via CDP — no sandboxed Chromium, no profile loss.
